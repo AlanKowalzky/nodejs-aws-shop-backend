@@ -1,0 +1,68 @@
+openapi: 3.0.0
+info:
+  title: "Product Service API (EN/PL)"
+  version: 1.0.0
+  description: |
+    API for managing the product catalog.
+    ---
+    API do zarządzania katalogiem produktów.
+servers:
+  - url: https://642wyzq699.execute-api.eu-central-1.amazonaws.com/prod/
+    description: Production server / Serwer produkcyjny
+paths:
+  /products:
+    get:
+      summary: "Get products list / Pobierz listę produktów"
+      description: |
+        Returns a full list of products available in the shop.
+        ---
+        Zwraca pełną listę produktów dostępnych w sklepie.
+      responses:
+        '200':
+          description: "Successful response with product array. / Pomyślna odpowiedź z tablicą produktów."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+  /products/{productId}:
+    get:
+      summary: "Get product by ID / Pobierz produkt po ID"
+      description: |
+        Returns details of a single product based on the provided productId.
+        ---
+        Zwraca szczegóły pojedynczego produktu na podstawie przekazanego productId.
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          description: "Unique identifier of the product. / Unikalny identyfikator produktu."
+          schema:
+            type: string
+      responses:
+        '200':
+          description: "Product details found. / Znaleziono szczegóły produktu."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: "Product not found error. / Błąd: Produkt nie został znaleziony."
+components:
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+      required:
+        - id
+        - title
+        - price
