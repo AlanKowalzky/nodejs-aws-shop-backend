@@ -1,0 +1,26 @@
+{
+  "name": "product_service",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "aws-cdk-lib": "^2.252.0",
+    "constructs": "^10.6.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.161",
+    "@types/node": "^25.6.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}

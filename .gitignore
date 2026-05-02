@@ -1,5 +1,13 @@
-*
-!.gitignore
+
 task3/
 .env/
 *.md
+node_modules
+# Ignoruj wszystkie node_modules w każdym podfolderze
+**/node_modules/
+node_modules/
+
+# Ignoruj inne zbędne rzeczy
+dist/
+.env
+task3/doc/
