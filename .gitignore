@@ -1,0 +1,5 @@
+*
+!.gitignore
+task3/
+.env/
+*.md
