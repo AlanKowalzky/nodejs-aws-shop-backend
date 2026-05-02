@@ -1,11 +1,11 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { products } from '../mock/products';
+import { products, Product } from '../mock/products';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   console.log('Event: ', JSON.stringify(event, null, 2));
 
   const { productId } = event.pathParameters || {};
-  const product = products.find((p) => p.id === productId);
+  const product = products.find((p: Product) => p.id === productId);
 
   if (!product) {
     return {
