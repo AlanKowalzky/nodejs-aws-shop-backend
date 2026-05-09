@@ -1,49 +1,57 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context, Callback } from 'aws-lambda';
-import { products } from '../mock/products';
+import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
+import { unmarshall } from "@aws-sdk/util-dynamodb";
 
-export const handler = async (event: APIGatewayProxyEvent, _context?: Context, _callback?: Callback): Promise<APIGatewayProxyResult> => {
-  const origin = process.env.ALLOWED_ORIGIN || "*";
-  const headers = {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Credentials": origin !== "*",
-  };
+const ddbClient = new DynamoDBClient({});
+
+export const handler = async (event: any) => {
+  // Bonus: logowanie requestu i argumentów
+  console.log('Incoming request [getProductsById]:', JSON.stringify(event));
+
+  const { productId } = event.pathParameters || {};
 
   try {
-    console.log('Incoming request event:', JSON.stringify(event));
+    const productParams = {
+      TableName: process.env.PRODUCTS_TABLE,
+      Key: { id: { S: productId } }
+    };
 
-    const productId = event.pathParameters?.productId;
+    const productData = await ddbClient.send(new GetItemCommand(productParams));
 
-    if (!productId) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Product ID is required' }),
-      };
-    }
-
-    const product = products.find((p) => p.id === productId);
-
-    if (!product) {
+    if (!productData.Item) {
       return {
         statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'Product not found' }),
+        body: JSON.stringify({ message: 'Product not found' })
       };
     }
 
+    const stockParams = {
+      TableName: process.env.STOCKS_TABLE,
+      Key: { product_id: { S: productId } }
+    };
+
+    const stockData = await ddbClient.send(new GetItemCommand(stockParams));
+
+    const product = unmarshall(productData.Item);
+    const stock = stockData.Item ? unmarshall(stockData.Item) : { count: 0 };
+
+    // Join danych w jeden model (Task 4.2)
     return {
       statusCode: 200,
-      headers,
-      body: JSON.stringify(product),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+      },
+      body: JSON.stringify({
+        ...product,
+        count: stock.count
+      })
     };
   } catch (error) {
-    console.error('Error in getProductsById:', error);
+    // Bonus: Obsługa błędu 500
+    console.error('Database Error:', error);
     return {
       statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal Server Error' }),
+      body: JSON.stringify({ message: 'Internal Server Error', error: String(error) })
     };
   }
 };
