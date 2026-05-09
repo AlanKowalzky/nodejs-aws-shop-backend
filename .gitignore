@@ -1,33 +1,19 @@
-
 .env/
 node_modules
-# Ignoruj wszystkie node_modules w każdym podfolderze
 **/node_modules/
-node_modules/
 
-# Ignoruj inne zbędne rzeczy
 dist/
 .env
 **/task3/doc/
 cdk.out/
-# Ignoruj wszystkie pliki JS
-*.js
 
-# Ale nie ignoruj plików konfiguracyjnych
+*.js
 !jest.config.js
 !*.config.js
 *.d.ts
 
-# Nie ignoruj plików z instrukcjami zadań
 !task4nosql.md
 !task4nosql.txt
-
-
-# Pozwól na pliki dokumentacji w folderze task4
-!**/task4/doc/*.md
-**/scripts/setup-db-manual-fake.ts
-!product_service/scripts/seed-dynamodb.ts
-!product_service/scripts/seed-dynamodb.ts
 !doc/task4/*.md
-!task4nosql.md
-!task4nosql.md
+product_service/scripts/setup-db-manual-fake.ts
+!product_service/scripts/seed-dynamodb.ts

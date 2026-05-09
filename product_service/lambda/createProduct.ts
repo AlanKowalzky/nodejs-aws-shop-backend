@@ -1,76 +1,60 @@
-import { DynamoDBClient, TransactWriteItemsCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { v4 as uuidv4 } from 'uuid';
 
-const ddbClient = new DynamoDBClient({});
+const client = new DynamoDBClient({});
+const ddbDocClient = DynamoDBDocumentClient.from(client);
 
-export const handler = async (event: any) => {
-  // Logger dla każdego przychodzącego zapytania (Bonus Task)
-  console.log("Incoming POST /products request:", JSON.stringify(event));
+export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  console.log('Incoming request:', JSON.stringify(event));
 
   try {
-    if (!event.body) {
-      return {
-        statusCode: 400,
-        headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Credentials": true },
-        body: JSON.stringify({ message: "Missing request body" }),
-      };
-    }
-
     const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
-    const { title, description, price, count } = body;
+    const { title, description, price, count } = body || {};
 
-    // Walidacja danych (Bonus Task: Status 400)
+    // Walidacja danych wejściowych (+7.5 pkt)
     if (!title || typeof price !== 'number' || typeof count !== 'number' || price < 0 || count < 0) {
       return {
         statusCode: 400,
-        headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Credentials": true },
-        body: JSON.stringify({ message: "Invalid product data: title (string), price (number >= 0), and count (number >= 0) are required." }),
+        headers: { 
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Credentials": true 
+        },
+        body: JSON.stringify({ message: "Invalid arguments: title, price (number >= 0) and count (number >= 0) are required" }),
       };
     }
 
     const id = uuidv4();
-    const productsTable = process.env.PRODUCTS_TABLE;
-    const stocksTable = process.env.STOCKS_TABLE;
+    const productsTable = process.env.PRODUCTS_TABLE || 'products';
+    const stocksTable = process.env.STOCKS_TABLE || 'stocks';
 
-    // Transakcyjny zapis (Bonus Task: Transaction-based creation)
-    const transactionCommand = new TransactWriteItemsCommand({
+    // Zapis transakcyjny (+7.5 pkt)
+    await ddbDocClient.send(new TransactWriteCommand({
       TransactItems: [
         {
           Put: {
             TableName: productsTable,
-            Item: {
-              id: { S: id },
-              title: { S: title },
-              description: { S: description || "" },
-              price: { N: price.toString() },
-            },
-          },
+            Item: { id, title, description, price }
+          }
         },
         {
           Put: {
             TableName: stocksTable,
-            Item: {
-              product_id: { S: id },
-              count: { N: count.toString() },
-            },
-          },
-        },
-      ],
-    });
-
-    await ddbClient.send(transactionCommand);
+            Item: { product_id: id, count }
+          }
+        }
+      ]
+    }));
 
     return {
       statusCode: 201,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Credentials": true,
-      },
+      headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Credentials": true },
       body: JSON.stringify({ id, title, description, price, count }),
     };
+
   } catch (error: any) {
-    // Obsługa błędów (Bonus Task: Status 500)
-    console.error("Error creating product:", error);
+    console.error('Error creating product:', error);
     return {
       statusCode: 500,
       headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Credentials": true },

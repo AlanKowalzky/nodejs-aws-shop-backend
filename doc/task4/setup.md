@@ -1,31 +1,32 @@
-# Dokumentacja Etapu 1 - Integracja z NoSQL (DynamoDB)
+# Setup Baz Danych DynamoDB (Task 4.1)
 
-Zgodnie z wymaganiem **Task 4.1**, tabele bazy danych zostały utworzone ręcznie za pomocą AWS Console w regionie docelowym.
+Zgodnie z instrukcją, tabele bazy danych zostały utworzone ręcznie za pomocą konsoli AWS.
 
-## Schemat Bazy Danych (ERD)
-
-Poniższy diagram przedstawia relację 1:1 między tabelami `products` i `stocks`.
+## Schemat Tabel
 
 ```mermaid
 erDiagram
-    PRODUCTS ||--|| STOCKS : "has stock"
+    PRODUCTS ||--|| STOCKS : "1:1 relationship"
     PRODUCTS {
-        string id PK "UUID"
+        string id PK "uuid"
         string title "not null"
-        string description
-        number price
+        string description "text"
+        number price "integer"
     }
     STOCKS {
-        string product_id PK "UUID (Foreign Key from products.id)"
+        string product_id PK "uuid (FK from products.id)"
         number count "integer"
     }
 ```
 
-## Szczegóły Konfiguracji
+## Szczegóły konfiguracji
 
-1. **Tabela `products`**:
-   - **Partition Key**: `id` (String)
-   - **Tryb**: On-Demand (Pay per request)
-2. **Tabela `stocks`**:
-   - **Partition Key**: `product_id` (String)
-   - **Tryb**: On-Demand (Pay per request)
+1.  **Tabela `products`**:
+    *   Partition Key: `id` (String)
+    *   Capacity Mode: On-Demand
+
+2.  **Tabela `stocks`**:
+    *   Partition Key: `product_id` (String)
+    *   Capacity Mode: On-Demand
+
+Nazwy tabel zostały przekazane do usług Lambda poprzez zmienne środowiskowe w stosie CDK.
