@@ -35,13 +35,13 @@ export class ProductServiceStack extends cdk.Stack {
       },
     });
 
-    // [TASK 3 + 4.2] Wspólne właściwości (DOPISANO PRODUCTS_TABLE i STOCKS_TABLE)
+    // [TASK 3 + 4.2] Wspólne właściwości
     const commonLambdaProps: Partial<NodejsFunctionProps> = {
       runtime: lambda.Runtime.NODEJS_18_X,
       environment: {
         ALLOWED_ORIGIN: FRONTEND_URL,
-        PRODUCTS_TABLE: productsTable.tableName, // TO NAPRAWIA BŁĄD 500
-        STOCKS_TABLE: stocksTable.tableName,     // TO NAPRAWIA BŁĄD 500
+        PRODUCTS_TABLE: productsTable.tableName,
+        STOCKS_TABLE: stocksTable.tableName,
       },
       bundling: {
         minify: true,
@@ -50,34 +50,49 @@ export class ProductServiceStack extends cdk.Stack {
       },
     };
 
-    // Funkcja Lambda: Lista produktów
+    // 1. Lambda: Lista produktów (GET /products)
     const getProductsList = new NodejsFunction(this, 'GetProductsListHandler', {
       ...commonLambdaProps,
       entry: path.join(__dirname, '../lambda/getProductsList.ts'),
       handler: 'handler',
     });
 
-    // Funkcja Lambda: Produkt po ID
+    // 2. Lambda: Produkt po ID (GET /products/{id})
     const getProductsById = new NodejsFunction(this, 'GetProductsByIdHandler', {
       ...commonLambdaProps,
       entry: path.join(__dirname, '../lambda/getProductsById.ts'),
       handler: 'handler',
     });
 
-    // [TASK 4.2] Nadanie uprawnień do odczytu (Grant Read Data)
+    // 3. [TASK 4.3] Lambda: Tworzenie produktu (POST /products)
+    const createProduct = new NodejsFunction(this, 'CreateProductHandler', {
+      ...commonLambdaProps,
+      entry: path.join(__dirname, '../lambda/createProduct.ts'),
+      handler: 'handler',
+    });
+
+    // UPRAWNIENIA
     productsTable.grantReadData(getProductsList);
     stocksTable.grantReadData(getProductsList);
     productsTable.grantReadData(getProductsById);
     stocksTable.grantReadData(getProductsById);
 
-    // Definicja zasobów API
+    // [TASK 4.3] Nadanie uprawnień do ZAPISU dla nowej Lambdy
+    productsTable.grantWriteData(createProduct);
+    stocksTable.grantWriteData(createProduct);
+
+    // DEFINICJA ZASOBÓW API
     const products = api.root.addResource('products');
+    
+    // GET /products
     products.addMethod('GET', new apigateway.LambdaIntegration(getProductsList));
+    
+    // [TASK 4.3] POST /products
+    products.addMethod('POST', new apigateway.LambdaIntegration(createProduct));
 
     const product = products.addResource('{productId}');
     product.addMethod('GET', new apigateway.LambdaIntegration(getProductsById));
 
-    // Export adresu API po deployu
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: api.url,
     });
