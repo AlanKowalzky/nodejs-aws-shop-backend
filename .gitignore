@@ -7,7 +7,7 @@ dist/
 **/task3/doc/
 cdk.out/
 
-*.js
+# *.js
 !jest.config.js
 !*.config.js
 *.d.ts

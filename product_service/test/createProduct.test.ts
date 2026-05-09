@@ -1,4 +1,4 @@
-import { handler } from '../handlers/createProduct';
+import { handler } from '../lambda/createProduct';
 import { DynamoDBDocumentClient, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 
@@ -8,6 +8,8 @@ describe('createProduct handler', () => {
   beforeEach(() => {
     ddbMock.reset();
     jest.spyOn(console, 'log').mockImplementation(() => {});
+    process.env.PRODUCTS_TABLE = 'products';
+    process.env.STOCKS_TABLE = 'stocks';
   });
 
   it('should return 201 and created product data on success', async () => {
@@ -34,7 +36,7 @@ describe('createProduct handler', () => {
     const result = await handler(event);
 
     expect(result.statusCode).toBe(400);
-    expect(JSON.parse(result.body).message).toContain('Invalid arguments');
+    expect(JSON.parse(result.body).message).toContain('Invalid product data');
   });
 
   it('should return 500 when database transaction fails', async () => {
