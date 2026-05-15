@@ -13,7 +13,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "outDir": "dist",
+"rootDir": "."
   },
   "include": ["lambda/**/*", "mock/**/*", "test/**/*", "lib/**/*"]
 }
