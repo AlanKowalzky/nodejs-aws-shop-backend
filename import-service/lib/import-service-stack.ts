@@ -59,7 +59,7 @@ export class ImportServiceStack extends cdk.Stack {
     importBucket.grantReadWrite(importFileParser);
 
     // Add S3 event trigger for importFileParser
-    importFileParser.addEventSource(new lambda.S3EventSource(importBucket, {
+    importFileParser.addEventSource(new S3EventSource(importBucket, {
       events: [s3.EventType.OBJECT_CREATED],
       filters: [{ prefix: 'uploaded/' }]
     }));
