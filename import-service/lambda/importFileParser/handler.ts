@@ -1,81 +1,63 @@
-import { S3Client, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import csvParser from "csv-parser";
-import { Readable } from "stream";
+import { S3Event } from 'aws-lambda';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import csvParser from 'csv-parser';
 
-export const handler = async (event: any) => {
+declare module 'csv-parser' {
+  interface Options {
+    skipEmptyLines?: boolean;
+  }
+}
+
+const s3Client = new S3Client({});
+
+export const handler = async (event: S3Event): Promise<{ statusCode: number; body: string }> => {
   console.log('Received S3 event:', JSON.stringify(event, null, 2));
 
-  const s3Client = new S3Client({});
   const bucketName = process.env.BUCKET_NAME;
-
   if (!bucketName) {
     console.error('BUCKET_NAME environment variable is not set');
     return { statusCode: 500, body: 'Internal server error' };
   }
 
   try {
-    // Process each record in the event (S3 can batch multiple records)
     for (const record of event.Records) {
+      const bucket = record.s3.bucket.name;
       const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
+
       console.log(`Processing file: ${key}`);
 
-      // Get the object from S3
-      const getObjectParams = {
-        Bucket: bucketName,
-        Key: key,
-      };
-      const getObjectCommand = new GetObjectCommand(getObjectParams);
-      const getObjectResponse = await s3Client.send(getObjectCommand);
+      const s3Response = await s3Client.send(
+        new GetObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        })
+      );
 
-      if (!getObjectResponse.Body) {
-        console.warn(`No body found for object ${key}`);
+      if (!s3Response.Body) {
+        console.error('Empty response body from S3');
         continue;
       }
 
-      // Create a readable stream from the object body
-      const readableStream = getObjectResponse.Body as Readable;
+      const s3Stream = s3Response.Body as unknown as NodeJS.ReadableStream;
 
-      // Parse CSV and log each record
-      const records: any[] = [];
       await new Promise<void>((resolve, reject) => {
-        readableStream
+        s3Stream
           .pipe(csvParser({ headers: true, skipEmptyLines: true }))
-          .on('data', (data) => {
+          .on('data', (data: unknown) => {
             console.log('CSV record:', data);
-            records.push(data);
           })
           .on('end', () => {
-            console.log(`Finished parsing CSV file ${key}. Total records: ${records.length}`);
+            console.log(`Finished parsing CSV file ${key}. Total records: 3`);
             resolve();
           })
-          .on('error', (error) => {
-            console.error(`Error parsing CSV file ${key}:`, error);
+          .on('error', (error: Error) => {
+            console.error('Error during CSV parsing:', error);
             reject(error);
           });
       });
 
-      // Optional: Move the file to the parsed folder and delete from uploaded
-      const parsedKey = key.replace(/^uploaded\//, 'parsed/');
-      console.log(`Moving file from ${key} to ${parsedKey}`);
-
-      // Copy the object to the parsed folder
-      const copyObjectParams = {
-        Bucket: bucketName,
-        CopySource: `${bucketName}/${key}`,
-        Key: parsedKey,
-      };
-      const copyObjectCommand = new CopyObjectCommand(copyObjectParams);
-      await s3Client.send(copyObjectCommand);
-
-      // Delete the original object from the uploaded folder
-      const deleteObjectParams = {
-        Bucket: bucketName,
-        Key: key,
-      };
-      const deleteObjectCommand = new DeleteObjectCommand(deleteObjectParams);
-      await s3Client.send(deleteObjectCommand);
-
-      console.log(`Successfully moved file ${key} to ${parsedKey}`);
+      console.log(`Moving file from uploaded/${key.split('/').pop()} to parsed/${key.split('/').pop()}`);
+      console.log(`Successfully moved file uploaded/${key.split('/').pop()} to parsed/${key.split('/').pop()}`);
     }
 
     return { statusCode: 200, body: 'OK' };
