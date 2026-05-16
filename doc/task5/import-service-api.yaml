@@ -1,0 +1,59 @@
+openapi: 3.0.0
+info:
+  title: "Import Service API"
+  version: 1.0.0
+  description: |
+    API for generating signed URLs to upload CSV files to S3.
+    ---
+    API do generowania podpisanych URL do uploadu plików CSV do S3.
+servers:
+  - url: https://642wyzq699.execute-api.eu-central-1.amazonaws.com/prod/
+    description: Production server / Serwer produkcyjny
+paths:
+  /import:
+    get:
+      summary: "Generate signed URL for CSV file upload / Generowanie podpisanego URL do uploadu pliku CSV"
+      description: |
+        Returns a signed URL that can be used to upload a CSV file to the S3 bucket.
+        The URL is valid for 15 minutes (900 seconds).
+        ---
+        Zwraca podpisany URL, który można użyć do uploadu pliku CSV do kosza S3.
+        URL jest ważny przez 15 minut (900 sekund).
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: "Name of the CSV file to upload / Nazwa pliku CSV do uploadu"
+          schema:
+            type: string
+            example: "products.csv"
+      responses:
+        '200':
+          description: "Successful response with signed URL. / Pomyślna odpowiedź z podpisanym URL."
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "https://import-service-bucket.s3.eu-central-1.amazonaws.com/uploaded/products.csv?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=..."
+        '400':
+          description: "Missing or invalid name parameter. / Brakujący lub niepoprawny parametr name."
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Missing required query parameter: name"
+        '500':
+          description: "Internal server error. / Wewnętrzny błąd serwera."
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Internal server error"
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+security:
+  - ApiKeyAuth: []
