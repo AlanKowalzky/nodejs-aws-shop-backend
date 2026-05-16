@@ -1,5 +1,5 @@
 import { S3Event } from 'aws-lambda';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import csvParser from 'csv-parser';
 
 declare module 'csv-parser' {
@@ -40,6 +40,7 @@ export const handler = async (event: S3Event): Promise<{ statusCode: number; bod
 
       const s3Stream = s3Response.Body as unknown as NodeJS.ReadableStream;
 
+      // 1. Parsowanie pliku CSV
       await new Promise<void>((resolve, reject) => {
         s3Stream
           .pipe(csvParser({ headers: true, skipEmptyLines: true }))
@@ -47,7 +48,7 @@ export const handler = async (event: S3Event): Promise<{ statusCode: number; bod
             console.log('CSV record:', data);
           })
           .on('end', () => {
-            console.log(`Finished parsing CSV file ${key}. Total records: 3`);
+            console.log(`Finished parsing CSV file ${key}`);
             resolve();
           })
           .on('error', (error: Error) => {
@@ -56,8 +57,30 @@ export const handler = async (event: S3Event): Promise<{ statusCode: number; bod
           });
       });
 
-      console.log(`Moving file from uploaded/${key.split('/').pop()} to parsed/${key.split('/').pop()}`);
-      console.log(`Successfully moved file uploaded/${key.split('/').pop()} to parsed/${key.split('/').pop()}`);
+      // Definiujemy nowy klucz dla folderu parsed/
+      const fileName = key.split('/').pop();
+      const parsedKey = `parsed/${fileName}`;
+
+      console.log(`Moving file from ${key} to ${parsedKey}`);
+
+      // 2. Kopiowanie pliku do folderu parsed/
+      await s3Client.send(
+        new CopyObjectCommand({
+          Bucket: bucket,
+          CopySource: `${bucket}/${key}`,
+          Key: parsedKey,
+        })
+      );
+
+      // 3. Usuwanie oryginalnego pliku z folderu uploaded/
+      await s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        })
+      );
+
+      console.log(`Successfully moved file ${key} to ${parsedKey}`);
     }
 
     return { statusCode: 200, body: 'OK' };
