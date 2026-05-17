@@ -1,5 +1,19 @@
-*
-!.gitignore
-task3/
 .env/
-*.md
+node_modules
+**/node_modules/
+
+dist/
+.env
+**/task3/doc/
+cdk.out/
+
+# *.js
+!jest.config.js
+!*.config.js
+*.d.ts
+
+!task4nosql.md
+!task4nosql.txt
+!doc/task4/*.md
+product_service/scripts/setup-db-manual-fake.ts
+!product_service/scripts/seed-dynamodb.ts
