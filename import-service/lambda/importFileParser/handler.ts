@@ -1,5 +1,5 @@
 import { S3Event } from 'aws-lambda';
-import { S3Client, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand, SQSClient, SendMessageCommand } from '@aws-sdk/client-s3';
 import csvParser from 'csv-parser';
 
 declare module 'csv-parser' {
@@ -9,13 +9,21 @@ declare module 'csv-parser' {
 }
 
 const s3Client = new S3Client({});
+const sqsClient = new SQSClient({});
 
 export const handler = async (event: S3Event): Promise<{ statusCode: number; body: string }> => {
   console.log('Received S3 event:', JSON.stringify(event, null, 2));
 
   const bucketName = process.env.BUCKET_NAME;
+  const queueUrl = process.env.CATALOG_ITEMS_QUEUE_URL;
+
   if (!bucketName) {
     console.error('BUCKET_NAME environment variable is not set');
+    return { statusCode: 500, body: 'Internal server error' };
+  }
+
+  if (!queueUrl) {
+    console.error('CATALOG_ITEMS_QUEUE_URL environment variable is not set');
     return { statusCode: 500, body: 'Internal server error' };
   }
 
@@ -45,10 +53,14 @@ export const handler = async (event: S3Event): Promise<{ statusCode: number; bod
         s3Stream
           .pipe(csvParser({ headers: true, skipEmptyLines: true }))
           .on('data', (data: unknown) => {
-            console.log('CSV record:', data);
+            // Send CSV record to SQS instead of logging
+            const messageBody = JSON.stringify(data);
+            sqsClient.send(new SendMessageCommand({
+              QueueUrl: queueUrl,
+              MessageBody: messageBody,
+            }));
           })
           .on('end', () => {
-            console.log(`Finished parsing CSV file ${key}`);
             resolve();
           })
           .on('error', (error: Error) => {
