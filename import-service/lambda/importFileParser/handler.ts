@@ -1,5 +1,6 @@
 import { S3Event } from 'aws-lambda';
-import { S3Client, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand, SQSClient, SendMessageCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import csvParser from 'csv-parser';
 
 declare module 'csv-parser' {
@@ -48,26 +49,23 @@ export const handler = async (event: S3Event): Promise<{ statusCode: number; bod
 
       const s3Stream = s3Response.Body as unknown as NodeJS.ReadableStream;
 
-      // 1. Parsowanie pliku CSV
+      const rows: unknown[] = [];
       await new Promise<void>((resolve, reject) => {
         s3Stream
           .pipe(csvParser({ headers: true, skipEmptyLines: true }))
-          .on('data', (data: unknown) => {
-            // Send CSV record to SQS instead of logging
-            const messageBody = JSON.stringify(data);
-            sqsClient.send(new SendMessageCommand({
-              QueueUrl: queueUrl,
-              MessageBody: messageBody,
-            }));
-          })
-          .on('end', () => {
-            resolve();
-          })
-          .on('error', (error: Error) => {
-            console.error('Error during CSV parsing:', error);
-            reject(error);
-          });
+          .on('data', (data: unknown) => rows.push(data))
+          .on('end', () => resolve())
+          .on('error', (error: Error) => reject(error));
       });
+
+      for (const data of rows) {
+        await sqsClient.send(
+          new SendMessageCommand({
+            QueueUrl: queueUrl,
+            MessageBody: JSON.stringify(data),
+          }),
+        );
+      }
 
       // Definiujemy nowy klucz dla folderu parsed/
       const fileName = key.split('/').pop();

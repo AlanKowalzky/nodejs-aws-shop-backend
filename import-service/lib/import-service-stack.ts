@@ -3,6 +3,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { S3EventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
@@ -22,13 +23,19 @@ export class ImportServiceStack extends cdk.Stack {
       autoDeleteObjects: true, // NOT for production!
     });
 
+    const catalogItemsQueue = sqs.Queue.fromQueueArn(
+      this,
+      'CatalogItemsQueue',
+      `arn:aws:sqs:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:catalogItemsQueue`,
+    );
+
     // Common Lambda configuration
     const commonLambdaProps: Partial<NodejsFunctionProps> = {
       runtime: lambda.Runtime.NODEJS_18_X,
       bundling: {
         minify: true,
         sourceMap: true,
-        externalModules: ['@aws-sdk/client-s3'],
+        externalModules: ['@aws-sdk/client-s3', '@aws-sdk/client-sqs'],
       },
     };
 
@@ -57,6 +64,7 @@ export class ImportServiceStack extends cdk.Stack {
 
     // Grant permissions to importFileParser Lambda
     importBucket.grantReadWrite(importFileParser);
+    catalogItemsQueue.grantSendMessages(importFileParser);
 
     // Add S3 event trigger for importFileParser
     importFileParser.addEventSource(new S3EventSource(importBucket, {
