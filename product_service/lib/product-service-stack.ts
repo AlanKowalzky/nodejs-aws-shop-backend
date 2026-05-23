@@ -50,6 +50,25 @@ export class ProductServiceStack extends cdk.Stack {
       },
     };
 
+    // SQS queue for catalog items (consumed by catalogBatchProcess)
+    const catalogItemsQueue = new sqs.Queue(this, 'CatalogItemsQueue', {
+      queueName: 'catalogItemsQueue',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // SNS topic for created products and an email subscription
+    const createProductTopic = new sns.Topic(this, 'CreateProductTopic', {
+      topicName: 'createProductTopic',
+    });
+
+    createProductTopic.addSubscription(new subs.EmailSubscription('alankowalzky@gmail.com'));
+    // Additional subscription for high-price products (price > 100)
+    createProductTopic.addSubscription(new subs.EmailSubscription('alankowalzky+highprice@gmail.com', {
+      filterPolicy: {
+        price: sns.SubscriptionFilter.numericFilter({ greaterThan: 100 }),
+      },
+    }));
+
     // --- DEFINICJE HANDLERÓW ---
 
     const getProductsList = new NodejsFunction(this, 'GetProductsListHandler', {

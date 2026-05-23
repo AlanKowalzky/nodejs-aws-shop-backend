@@ -56,6 +56,7 @@ export class ImportServiceStack extends cdk.Stack {
       handler: 'handler',
       environment: {
         BUCKET_NAME: importBucket.bucketName,
+        CATALOG_ITEMS_QUEUE_URL: `https://sqs.${cdk.Aws.REGION}.amazonaws.com/${cdk.Aws.ACCOUNT_ID}/catalogItemsQueue`,
       },
     });
 
