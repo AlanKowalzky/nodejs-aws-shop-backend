@@ -2,7 +2,11 @@ import * as cdk from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -38,7 +42,11 @@ export class ProductServiceStack extends cdk.Stack {
       bundling: {
         minify: true,
         sourceMap: true,
-        externalModules: ['@aws-sdk/client-dynamodb', '@aws-sdk/util-dynamodb'],
+        externalModules: [
+          '@aws-sdk/client-dynamodb',
+          '@aws-sdk/lib-dynamodb',
+          '@aws-sdk/client-sns',
+        ],
       },
     };
 
@@ -63,6 +71,20 @@ export class ProductServiceStack extends cdk.Stack {
       handler: 'handler',
     });
 
+    const catalogBatchProcess = new NodejsFunction(this, 'CatalogBatchProcessHandler', {
+      ...commonLambdaProps,
+      entry: path.join(__dirname, '../lambda/catalogBatchProcess.ts'),
+      handler: 'handler',
+      environment: {
+        ...commonLambdaProps.environment,
+        CREATE_PRODUCT_TOPIC_ARN: createProductTopic.topicArn,
+      },
+    });
+
+    catalogBatchProcess.addEventSource(new SqsEventSource(catalogItemsQueue, {
+      batchSize: 5,
+    }));
+
     // --- UPRAWNIENIA ---
     productsTable.grantReadData(getProductsList);
     stocksTable.grantReadData(getProductsList);
@@ -72,6 +94,9 @@ export class ProductServiceStack extends cdk.Stack {
     // NADAJESZ UPRAWNIENIA DO ZAPISU (Dla transakcji w createProduct)
     productsTable.grantWriteData(createProduct);
     stocksTable.grantWriteData(createProduct);
+    productsTable.grantWriteData(catalogBatchProcess);
+    stocksTable.grantWriteData(catalogBatchProcess);
+    createProductTopic.grantPublish(catalogBatchProcess);
 
     // --- INTEGRACJA Z API GATEWAY ---
     const products = api.root.addResource('products');
@@ -87,4 +112,4 @@ export class ProductServiceStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.url });
   }
-}/* DEBUG */
+}
