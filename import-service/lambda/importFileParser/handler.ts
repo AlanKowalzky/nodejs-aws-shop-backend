@@ -58,11 +58,59 @@ export const handler = async (event: S3Event): Promise<{ statusCode: number; bod
           .on('error', (error: Error) => reject(error));
       });
 
+      // Normalize rows: support both keyed by header names and positional keys like _0, _1...
+      const normalize = (raw: any) => {
+        if (!raw) return null;
+
+        // If parser returned positional keys (_0, _1, ...), map them to expected names
+        const posKeys = Object.keys(raw).filter(k => /^_\d+$/.test(k));
+        let title: any;
+        let description: any;
+        let price: any;
+        let count: any;
+
+        if (posKeys.length > 0) {
+          // Ensure order by numeric index
+          const values = posKeys
+            .sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
+            .map(k => raw[k]);
+          [title, description, price, count] = values;
+        } else {
+          title = raw.title ?? raw.Title ?? raw.name ?? raw.nameProduct;
+          description = raw.description ?? raw.Description ?? raw.desc;
+          price = raw.price ?? raw.Price;
+          count = raw.count ?? raw.Count ?? raw.stock;
+        }
+
+        // Skip header rows where the values equal header names
+        if (typeof title === 'string' && title.toLowerCase() === 'title') return null;
+
+        const normalized = {
+          title: title ?? '',
+          description: description ?? '',
+          price: price !== undefined && price !== '' ? Number(price) : 0,
+          count: count !== undefined && count !== '' ? Number(count) : 0,
+        };
+
+        // Basic validation: title and numeric values
+        if (!normalized.title || Number.isNaN(normalized.price) || Number.isNaN(normalized.count)) {
+          return null;
+        }
+
+        return normalized;
+      };
+
       for (const data of rows) {
+        const payload = normalize(data as any);
+        if (!payload) {
+          console.log('Skipping invalid or header row:', data);
+          continue;
+        }
+
         await sqsClient.send(
           new SendMessageCommand({
             QueueUrl: queueUrl,
-            MessageBody: JSON.stringify(data),
+            MessageBody: JSON.stringify(payload),
           }),
         );
       }
