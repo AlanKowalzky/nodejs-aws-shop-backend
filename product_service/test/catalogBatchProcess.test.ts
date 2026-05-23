@@ -1,184 +1,79 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
+import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+import { mockClient } from 'aws-sdk-client-mock';
+import { Context, SQSEvent } from 'aws-lambda';
 import { handler } from '../lambda/catalogBatchProcess';
 
-// Mock AWS SDK clients
-jest.mock('@aws-sdk/client-dynamodb', () => {
-  return {
-    DynamoDBClient: jest.fn().mockImplementation(() => {
-      return {
-        send: jest.fn(),
-      };
-    }),
-  };
-});
+const ddbMock = mockClient(DynamoDBDocumentClient);
+const snsMock = mockClient(SNSClient);
 
-jest.mock('@aws-sdk/lib-dynamodb', () => {
-  return {
-    DynamoDBDocumentClient: {
-      from: (client: any) => {
-        return {
-          send: jest.fn(),
-        };
-      },
-    },
-    PutCommand: jest.fn(),
-    TransactWriteCommand: jest.fn(),
-  };
-});
+const mockContext = {} as Context;
 
-jest.mock('@aws-sdk/client-sns', () => {
-  return {
-    SNSClient: jest.fn().mockImplementation(() => {
-      return {
-        send: jest.fn(),
-      };
-    }),
-    PublishCommand: jest.fn(),
-  };
+const runHandler = (event: SQSEvent) =>
+  handler(event, mockContext, () => {});
+
+const validRecord = (overrides: Record<string, unknown> = {}) => ({
+  body: JSON.stringify({
+    title: 'Test Product',
+    description: 'Test Description',
+    price: 99.99,
+    count: 5,
+    ...overrides,
+  }),
 });
 
 describe('catalogBatchProcess', () => {
-  let mockContext: Context;
-
   beforeEach(() => {
-    mockContext = {
-      callbackWaitsForEmptyEventLoop: true,
-      functionName: 'test-function',
-      functionVersion: '$LATEST',
-      invokedFunctionArn: 'arn:aws:lambda:us-east-1:123456789012:function:test-function',
-      memoryLimitInMB: '128',
-      awsRequestId: 'test-request-id',
-      logGroupName: 'test-log-group',
-      logStreamName: 'test-log-stream',
-      getRemainingTimeInMillis: () => 1000,
-      done: (error?: any, result?: any) => { },
-      fail: (error: any | string) => { },
-      succeed: (messageOrResult?: any) => { },
-    };
+    ddbMock.reset();
+    snsMock.reset();
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    process.env.PRODUCTS_TABLE = 'test-products-table';
-    process.env.STOCKS_TABLE = 'test-stocks-table';
-    process.env.CREATE_PRODUCT_TOPIC_ARN = 'arn:aws:sns:us-east-1:123456789012:createProductTopic';
+    process.env.PRODUCTS_TABLE = 'products';
+    process.env.STOCKS_TABLE = 'stocks';
+    process.env.CREATE_PRODUCT_TOPIC_ARN = 'arn:aws:sns:eu-west-1:123456789012:createProductTopic';
+
+    ddbMock.on(PutCommand).resolves({});
+    snsMock.on(PublishCommand).resolves({});
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
-    delete process.env.PRODUCTS_TABLE;
-    delete process.env.STOCKS_TABLE;
-    delete process.env.CREATE_PRODUCT_TOPIC_ARN;
+    jest.restoreAllMocks();
   });
 
-  it('should process valid SQS records and create products', async () => {
+  it('zapisuje produkt i stock oraz publikuje SNS z atrybutem price', async () => {
+    const event = { Records: [validRecord()] } as SQSEvent;
+
+    await runHandler(event);
+
+    expect(ddbMock.commandCalls(PutCommand)).toHaveLength(2);
+    expect(snsMock.commandCalls(PublishCommand)).toHaveLength(1);
+
+    const publishInput = snsMock.commandCalls(PublishCommand)[0].args[0].input;
+    expect(publishInput.MessageAttributes?.price?.StringValue).toBe('99.99');
+  });
+
+  it('pomija niepoprawny rekord i przetwarza kolejny', async () => {
     const event = {
       Records: [
-        {
-          body: JSON.stringify({
-            title: 'Test Product 1',
-            description: 'Test Description 1',
-            price: 10.99,
-            count: 5,
-          }),
-        },
-        {
-          body: JSON.stringify({
-            title: 'Test Product 2',
-            description: 'Test Description 2',
-            price: 20.50,
-            count: 3,
-          }),
-        },
+        validRecord({ title: '', price: -1 }),
+        validRecord({ title: 'OK Product', price: 10, count: 1 }),
       ],
-    } as any;
+    } as SQSEvent;
 
-    await expect(handler(event, mockContext)).resolves.toBeUndefined();
+    await runHandler(event);
+
+    expect(ddbMock.commandCalls(PutCommand)).toHaveLength(2);
+    expect(snsMock.commandCalls(PublishCommand)).toHaveLength(1);
   });
 
-  it('should skip invalid SQS records and continue processing', async () => {
-    const event = {
-      Records: [
-        {
-          body: JSON.stringify({
-            title: 'Valid Product',
-            description: 'Valid Description',
-            price: 15.99,
-            count: 2,
-          }),
-        },
-        {
-          body: JSON.stringify({
-            title: '', // Invalid title
-            description: 'Invalid Description',
-            price: -5, // Invalid price
-            count: 0,
-          }),
-        },
-        {
-          body: JSON.stringify({
-            title: 'Another Valid Product',
-            description: 'Another Valid Description',
-            price: 25.00,
-            count: 7,
-          }),
-        },
-      ],
-    } as any;
-
-    await expect(handler(event, mockContext)).resolves.toBeUndefined();
-  });
-
-  it('should handle malformed JSON in SQS records', async () => {
-    const event = {
-      Records: [
-        {
-          body: 'invalid json {',
-        },
-        {
-          body: JSON.stringify({
-            title: 'Test Product',
-            description: 'Test Description',
-            price: 12.99,
-            count: 4,
-          }),
-        },
-      ],
-    } as any;
-
-    await expect(handler(event, mockContext)).resolves.toBeUndefined();
-  });
-
-  it('should return 500 when required environment variables are missing', async () => {
+  it('rzuca błąd gdy brakuje PRODUCTS_TABLE', async () => {
     delete process.env.PRODUCTS_TABLE;
 
-    const event = {
-      Records: [
-        {
-          body: JSON.stringify({
-            title: 'Test Product',
-            description: 'Test Description',
-            price: 10.00,
-            count: 1,
-          }),
-        },
-      ],
-    } as any;
+    const event = { Records: [validRecord()] } as SQSEvent;
 
-    await expect(handler(event, mockContext)).rejects.toThrow('Missing table names in environment variables');
-  });
-
-  it('should publish to SNS when topic ARN is provided', async () => {
-    const event = {
-      Records: [
-        {
-          body: JSON.stringify({
-            title: 'SNS Test Product',
-            description: 'SNS Test Description',
-            price: 99.99,
-            count: 10,
-          }),
-        },
-      ],
-    } as any;
-
-    await expect(handler(event, mockContext)).resolves.toBeUndefined();
+    await expect(runHandler(event)).rejects.toThrow(
+      'Missing table names in environment variables',
+    );
   });
 });

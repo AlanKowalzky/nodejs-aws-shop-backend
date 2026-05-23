@@ -17,3 +17,4 @@ cdk.out/
 !doc/task4/*.md
 product_service/scripts/setup-db-manual-fake.ts
 !product_service/scripts/seed-dynamodb.ts
+doc/*

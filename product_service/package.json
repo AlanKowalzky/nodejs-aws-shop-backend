@@ -8,6 +8,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
+    "test:task6": "jest --testPathPattern=catalogBatchProcess",
     "cdk": "cdk"
   },
   "devDependencies": {
@@ -24,6 +25,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1045.0",
+    "@aws-sdk/client-sns": "^3.1053.0",
     "@aws-sdk/lib-dynamodb": "^3.1045.0",
     "aws-cdk-lib": "^2.0.0",
     "constructs": "^10.0.0",
