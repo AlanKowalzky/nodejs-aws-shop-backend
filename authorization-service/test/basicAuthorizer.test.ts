@@ -5,24 +5,24 @@ describe('basicAuthorizer handler', () => {
   const mockContext = {} as Context;
 
   beforeEach(() => {
-    process.env.johndoe = 'TEST_PASSWORD';
+    process.env.alankowalzky = 'TEST_PASSWORD';
   });
 
   afterEach(() => {
-    delete process.env.johndoe;
+    delete process.env.alankowalzky;
   });
 
   it('should return Allow policy for correct credentials', async () => {
     const event: APIGatewayTokenAuthorizerEvent = {
       type: 'TOKEN',
-      authorizationToken: 'Basic am9obmRvZTpURVNUX1BBU1NXT1JE', // johndoe:TEST_PASSWORD
+      authorizationToken: 'Basic YWxhbmtvd2Fsemt5OlRFU1RfUEFTU1dPUkQ=', // alankowalzky:TEST_PASSWORD
       methodArn: 'arn:aws:execute-api:us-east-1:123456789012:apiId/stage/GET/import',
     };
 
     const result = await handler(event, mockContext);
 
     expect(result.policyDocument.Statement[0].Effect).toBe('Allow');
-    expect(result.principalId).toBe('johndoe');
+    expect(result.principalId).toBe('alankowalzky');
   });
 
   it('should return Deny policy for incorrect credentials', async () => {
