@@ -1,4 +1,3 @@
-import { S3Event } from 'aws-lambda';
 import { Readable } from 'stream';
 
 const mockSend = jest.fn();
@@ -14,6 +13,15 @@ jest.mock('@aws-sdk/client-s3', () => {
 });
 
 import { handler } from '../lambda/importFileParser/handler';
+
+type S3Event = {
+  Records: Array<{
+    s3: {
+      bucket: { name: string };
+      object: { key: string };
+    };
+  }>;
+};
 
 describe('importFileParser handler', () => {
   beforeEach(() => {

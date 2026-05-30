@@ -1,4 +1,3 @@
-import { S3Event } from 'aws-lambda';
 import { S3Client, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import csvParser from 'csv-parser';
@@ -11,6 +10,17 @@ declare module 'csv-parser' {
 
 const s3Client = new S3Client({});
 const sqsClient = new SQSClient({});
+
+type S3EventRecord = {
+  s3: {
+    bucket: { name: string };
+    object: { key: string };
+  };
+};
+
+type S3Event = {
+  Records: S3EventRecord[];
+};
 
 export const handler = async (event: S3Event): Promise<{ statusCode: number; body: string }> => {
   console.log('Received S3 event:', JSON.stringify(event, null, 2));

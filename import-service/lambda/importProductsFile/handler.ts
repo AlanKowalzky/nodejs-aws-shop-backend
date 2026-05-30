@@ -1,8 +1,19 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-export const handler = async (event: Partial<APIGatewayProxyEvent>): Promise<APIGatewayProxyResult> => {
+type ImportProductsFileEvent = {
+  queryStringParameters?: {
+    name?: string;
+  } | null;
+};
+
+type ImportProductsFileResult = {
+  statusCode: number;
+  headers: Record<string, string>;
+  body: string;
+};
+
+export const handler = async (event: ImportProductsFileEvent): Promise<ImportProductsFileResult> => {
   try {
     console.log('Received event:', JSON.stringify(event, null, 2));
 
