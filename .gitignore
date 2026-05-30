@@ -1,7 +1,7 @@
 .env/
 node_modules
 **/node_modules/
-
+.claude/
 dist/
 .env
 **/task3/doc/

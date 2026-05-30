@@ -16,7 +16,7 @@ export class ProductServiceStack extends cdk.Stack {
     super(scope, id, props);
 
     const FRONTEND_URL = 'https://d2gtnorsanlq4.cloudfront.net';
-    const COGNITO_DOMAIN_PREFIX = `product-service-auth-${cdk.Aws.ACCOUNT_ID}-${cdk.Aws.REGION}`;
+    const COGNITO_DOMAIN_PREFIX = 'productserviceauthtask7';
 
     // 1. Referencje do tabel DynamoDB
     const productsTable = dynamodb.Table.fromTableName(this, 'ProductsTable', 'products');
@@ -73,7 +73,7 @@ export class ProductServiceStack extends cdk.Stack {
 
     const userPoolDomain = userPool.addDomain('ProductServiceDomain', {
       cognitoDomain: {
-        domainPrefix: COGNITO_DOMAIN_PREFIX.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+        domainPrefix: COGNITO_DOMAIN_PREFIX,
       },
     });
 
