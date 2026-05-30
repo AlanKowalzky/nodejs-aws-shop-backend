@@ -42,3 +42,11 @@ Authorization: Basic YWxhbmtvd2Fsemt5OlRFU1RfUEFTU1dPUkQ=
 - `GET /import?name=<file.csv>` returns a signed S3 upload URL
 - missing `Authorization` header should return `401`
 - invalid credentials should return `403`
+
+### Cognito practice
+
+`ProductServiceStack` also creates a Cognito User Pool for the optional login-page practice task.
+
+- `GET /products` is protected with a Cognito authorizer
+- the Hosted UI login link is exposed from the stack output as `CognitoHostedUiUrl`
+- the callback URL currently points to `https://d2gtnorsanlq4.cloudfront.net`

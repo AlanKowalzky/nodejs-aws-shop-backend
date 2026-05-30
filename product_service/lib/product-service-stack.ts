@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
@@ -15,6 +16,7 @@ export class ProductServiceStack extends cdk.Stack {
     super(scope, id, props);
 
     const FRONTEND_URL = 'https://d2gtnorsanlq4.cloudfront.net';
+    const COGNITO_DOMAIN_PREFIX = `product-service-auth-${cdk.Aws.ACCOUNT_ID}-${cdk.Aws.REGION}`;
 
     // 1. Referencje do tabel DynamoDB
     const productsTable = dynamodb.Table.fromTableName(this, 'ProductsTable', 'products');
@@ -29,6 +31,54 @@ export class ProductServiceStack extends cdk.Stack {
         allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
         allowCredentials: true,
       },
+    });
+
+    const userPool = new cognito.UserPool(this, 'ProductServiceUserPool', {
+      selfSignUpEnabled: true,
+      signInAliases: {
+        email: true,
+      },
+      standardAttributes: {
+        email: {
+          required: true,
+          mutable: true,
+        },
+      },
+      autoVerify: {
+        email: true,
+      },
+      userVerification: {
+        emailSubject: 'Verify your email for Product Service',
+        emailBody: 'Thanks for signing up. Your verification code is {####}',
+        emailStyle: cognito.VerificationEmailStyle.CODE,
+      },
+    });
+
+    const userPoolClient = userPool.addClient('ProductServiceAppClient', {
+      generateSecret: false,
+      oAuth: {
+        flows: {
+          authorizationCodeGrant: true,
+        },
+        scopes: [
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.PROFILE,
+          cognito.OAuthScope.PHONE,
+        ],
+        callbackUrls: [FRONTEND_URL],
+        logoutUrls: [FRONTEND_URL],
+      },
+    });
+
+    const userPoolDomain = userPool.addDomain('ProductServiceDomain', {
+      cognitoDomain: {
+        domainPrefix: COGNITO_DOMAIN_PREFIX.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+      },
+    });
+
+    const cognitoAuthorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'ProductServiceCognitoAuthorizer', {
+      cognitoUserPools: [userPool],
     });
 
     // 3. Wspólna konfiguracja dla wszystkich Lambd w folderze /lambda
@@ -121,7 +171,10 @@ export class ProductServiceStack extends cdk.Stack {
     const products = api.root.addResource('products');
     
     // Obsługa GET /products (to już miałeś)
-    products.addMethod('GET', new apigateway.LambdaIntegration(getProductsList));
+    products.addMethod('GET', new apigateway.LambdaIntegration(getProductsList), {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
     
     // OBSŁUGA POST /products (tego brakowało w Stacku)
     products.addMethod('POST', new apigateway.LambdaIntegration(createProduct));
@@ -130,5 +183,11 @@ export class ProductServiceStack extends cdk.Stack {
     product.addMethod('GET', new apigateway.LambdaIntegration(getProductsById));
 
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.url });
+    new cdk.CfnOutput(this, 'CognitoUserPoolId', { value: userPool.userPoolId });
+    new cdk.CfnOutput(this, 'CognitoAppClientId', { value: userPoolClient.userPoolClientId });
+    new cdk.CfnOutput(this, 'CognitoHostedUiUrl', {
+      value: `https://${userPoolDomain.domainName}.auth.${cdk.Aws.REGION}.amazoncognito.com/login?client_id=${userPoolClient.userPoolClientId}&response_type=code&scope=openid+email+profile+phone&redirect_uri=${encodeURIComponent(FRONTEND_URL)}`,
+      description: 'Hosted UI login URL for Cognito',
+    });
   }
 }
