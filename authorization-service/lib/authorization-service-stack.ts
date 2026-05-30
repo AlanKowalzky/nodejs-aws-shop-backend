@@ -12,6 +12,8 @@ export class AuthorizationServiceStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    const envVars = dotenv.config().parsed || {};
+
     const basicAuthorizer = new NodejsFunction(this, 'BasicAuthorizerHandler', {
       runtime: lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../lambda/basicAuthorizer/handler.ts'),
@@ -19,10 +21,12 @@ export class AuthorizationServiceStack extends cdk.Stack {
       bundling: {
         minify: true,
         sourceMap: true,
+        esbuildArgs: {
+          '--packages': 'bundle',
+        },
       },
       environment: {
-        // Load all env vars starting with common ones or just all from .env
-        ...process.env as { [key: string]: string },
+        ...envVars,
       },
     });
 
