@@ -1,0 +1,67 @@
+
+Wymagania wstępne
+To zadanie jest kontynuacją zadania domowego 6 i powinno zostać wykonane w tym samym repozytorium.
+Architektura
+Pełną architekturę programu znajdziesz tutaj .
+
+Skupienie na zadaniu
+Zadania
+Zadanie 7.1
+Utwórz nową usługę, która będzie wywoływana authorization-servicena tym samym poziomie co usługi Product i Import, z własnym stosem AWS CDK. Struktura projektu back-end powinna wyglądać następująco:
+   backend-repository
+      product-service
+      import-service
+      authorization-service
+Utwórz funkcję lambda wywoływaną basicAuthorizerw ramach usługi autoryzacji.
+Ta lambda powinna mieć co najmniej jedną zmienną środowiskową z następującymi danymi uwierzytelniającymi:
+  {yours_github_account_login}=TEST_PASSWORD
+{yours_github_account_login}- nazwa Twojego konta GitHub. Loginem użytkownika testowego powinna być nazwa Twojego konta GitHub.
+TEST_PASSWORD- ciąg hasła. Hasło dla użytkownika testowego musi brzmieć „TEST_PASSWORD”
+przykład:johndoe=TEST_PASSWORD
+Ta basicAuthorizerlambda powinna przyjąć token autoryzacji podstawowej , zdekodować go i sprawdzić, czy dane uwierzytelniające dostarczone przez token istnieją w zmiennej środowiskowej lambda.
+Ta lambda powinna zwrócić status HTTP 403, jeśli dostęp dla tego użytkownika jest odmówiony (nieprawidłowy authorization_token) i status HTTP 401, jeśli nagłówek Authorization nie został podany.
+W przypadku pomyślnych autoryzacji lambda powinna zwrócić politykę IAM, która umożliwia wywołanie żądanej metody Dokumentacja
+UWAGA: Nie wysyłaj swoich danych uwierzytelniających do GitHuba. Użyj polecenia .envfile i dotenvpackage, aby dodać zmienne środowiskowe do lambdy. Dodaj polecenie .envfile to .gitignorefile.
+
+  .env file example:
+    vasiapupkin=TEST_PASSWORD
+Zadanie 7.2
+Dodaj autoryzację Lambda do /importścieżki Import Service API Gateway.
+Użyj swojej basicAuthorizerlambdy jako autoryzatora Lambdy
+Zadanie 7.3
+Żądanie z aplikacji klienckiej do /importścieżki Usługi Importu powinno zawierać nagłówek Basic Authorization :
+  Authorization: Basic {authorization_token}
+{authorization_token}jest zakodowany w formacie base64{yours_github_account_login}:TEST_PASSWORD
+przykład:Authorization: Basic sGLzdRxvZmw0ZXs0UGFzcw==
+Klient powinien uzyskać authorization_tokenwartość z pamięci lokalnej przeglądarki
+  const authorization_token = localStorage.getItem('authorization_token')
+Zadanie 7.4
+Zatwierdź całą swoją pracę w oddzielnej gałęzi (np. task-7od najnowszej master) w swoim własnym repozytorium.
+Utwórz żądanie ściągnięcia do mastergałęzi.
+Prześlij link do żądania ściągnięcia na stronę Crosscheck w aplikacji RS .
+Kryteria oceny (70 punktów za spełnienie wszystkich kryteriów)
+Podaj recenzentom link do repozytorium, aplikacji klienckiej i adresy URL umożliwiające wykonanie ścieżki /importusługi importu.
+
+authorization-servicejest dodawany do repozytorium, ma poprawną basicAuthorizerlambdę i poprawny stos AWS CDK
+Usługa importu AWS CDK Stack ma konfigurację autoryzatora dla importProductsFilelambdy. Żądanie do importProductsFilelambdy powinno działać tylko po authorization_tokenjej zdekodowaniu i sprawdzeniu przez basicAuthorizerlambdę. Odpowiedź powinna mieć status HTTP 403, jeśli dostęp dla tego użytkownika jest zabroniony (nieprawidłowy authorization_token), oraz status HTTP 401, jeśli nagłówek autoryzacji nie został podany.
+Aplikacja kliencka została zaktualizowana, aby wysyłać authorization_tokennagłówek „Authorization: Basic” podczas importu. Klient powinien pobrać authorization_tokenwartość z pamięci lokalnej przeglądarki.
+Zadania dodatkowe (opcjonalne)
+UWAGA: Zalecane ze względu na rozwój osobisty i dalsze rozmowy kwalifikacyjne, ale ta część nie będzie oceniana podczas kontroli krzyżowej.
+
++30 – Aplikacja kliencka powinna wyświetlać alerty dla odpowiedzi w statusach HTTP 401 i 403. To zachowanie należy dodać do nodejs-aws-fe-main/src/index.tsxpliku.
+Tylko praktyka, bez oceny — dodaj stronę logowania i chroń getProductsListlambdę za pomocą autoryzatora Cognito
+Utwórz pulę użytkowników Cognito, korzystając z demonstracji z wykładu. Pozostaw emaillistę standardowych wymaganych atrybutów. Pole wyboru Allow users to sign themselves uppowinno być zaznaczone. Ustaw również emailjako atrybut, który chcesz zweryfikować.
+Dodaj App Clientdo puli użytkowników
+W App Client Settingssekcji wybierz „Wszystkie” Identity Providers. Wypełnij Callback URL(s)pole adresem URL aplikacji klienckiej (np. http://localhost:3000/). Zezwól tylko na Authorization code grantprzepływ OAuth. Zezwól na wszystkieOAuth Scopes
+Utwórz nazwę domeny
+Po wykonaniu wszystkich tych czynności możesz otworzyć swój plik Login Pageklikając na Launch Hosted UIlink wApp Client Settings
+Udostępnij ten link recenzentom. Recenzent będzie mógł po prostu potwierdzić, że u niego też wszystko działa.
+Dodaj autoryzację Cognito do getProductsListlambdy. Użyj AuthorizationjakoToken Source
+Jak upewnić się, że wszystko działa zgodnie z oczekiwaniami:
+Otwórz stronę logowania i Sign Uputwórz nowego użytkownika. Użyj prawdziwego adresu e-mail, aby utworzyć tego użytkownika.
+Zweryfikuj użytkownika za pomocą kodu z wiadomości e-mail
+Po weryfikacji i każdym logowaniu zostaniesz przekierowany do aplikacji Klienta. W adresie URL należy podać adres id_token, za pomocą którego można uzyskać dostęp do getProductsListfunkcji lambda.
+Wywołaj getProductsListlambdę używając id_tokenwartości Authorizationnagłówka
+Usuń autoryzację po getProductsListsprawdzeniu zadania
+Kary
+-50 - Struktura bezserwerowa używana do tworzenia i wdrażania infrastruktury

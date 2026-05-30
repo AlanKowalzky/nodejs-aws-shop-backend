@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: Import Service API
+  version: 1.0.0
+  description: API for generating signed S3 upload URLs.
+paths:
+  /import:
+    get:
+      summary: Get a signed URL for CSV import
+      description: Returns a signed S3 upload URL for uploading a CSV file.
+      security:
+        - BasicAuth: []
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The name of the CSV file to upload.
+      responses:
+        '200':
+          description: Signed URL generated successfully.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Missing Authorization header.
+        '403':
+          description: Invalid credentials.
+        '400':
+          description: Missing or invalid query parameter.
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+

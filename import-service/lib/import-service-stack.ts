@@ -2,8 +2,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { S3EventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
@@ -84,9 +84,27 @@ export class ImportServiceStack extends cdk.Stack {
       },
     });
 
+    const basicAuthorizerArn = ssm.StringParameter.valueForStringParameter(
+      this,
+      '/authorization-service/basic-authorizer-arn',
+    );
+    const basicAuthorizer = lambda.Function.fromFunctionArn(
+      this,
+      'BasicAuthorizer',
+      basicAuthorizerArn,
+    );
+
+    const tokenAuthorizer = new apigateway.TokenAuthorizer(this, 'BasicAuthorizerToken', {
+      handler: basicAuthorizer,
+      identitySource: apigateway.IdentitySource.header('Authorization'),
+    });
+
     // GET /import endpoint
     const importResource = api.root.addResource('import');
-    importResource.addMethod('GET', new apigateway.LambdaIntegration(importProductsFile));
+    importResource.addMethod('GET', new apigateway.LambdaIntegration(importProductsFile), {
+      authorizer: tokenAuthorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+    });
 
     // Outputs
     new cdk.CfnOutput(this, 'BucketName', {

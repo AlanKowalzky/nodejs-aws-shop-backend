@@ -1,0 +1,8 @@
+{
+  "app": "npx ts-node bin/authorization-service.ts",
+  "context": {
+    "@aws-cdk/core:newStyleStackSynthesis": true,
+    "@aws-cdk/aws-lambda:recognizeVersionProps": true,
+    "@aws-cdk/aws-lambda:recognizeLayersVersion": true
+  }
+}

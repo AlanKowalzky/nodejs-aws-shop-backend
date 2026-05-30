@@ -14,7 +14,6 @@ jest.mock('@aws-sdk/client-s3', () => {
 });
 
 import { handler } from '../lambda/importProductsFile/handler';
-import { APIGatewayProxyEvent } from 'aws-lambda';
 
 describe('importProductsFile handler', () => {
   beforeEach(() => {
@@ -30,7 +29,7 @@ describe('importProductsFile handler', () => {
 
     mockGetSignedUrl.mockResolvedValue('https://signed-url.example.com');
 
-    const result = await handler(event as Partial<APIGatewayProxyEvent>);
+    const result = await handler(event);
 
     expect(result.statusCode).toBe(200);
     expect(result.body).toBe('https://signed-url.example.com');
@@ -39,7 +38,7 @@ describe('importProductsFile handler', () => {
   it('should return 400 when name parameter is missing', async () => {
     const event = { queryStringParameters: {} };
 
-    const result = await handler(event as Partial<APIGatewayProxyEvent>);
+    const result = await handler(event);
 
     expect(result.statusCode).toBe(400);
     expect(result.body).toBe('Missing required query parameter: name');
@@ -50,7 +49,7 @@ describe('importProductsFile handler', () => {
       queryStringParameters: { name: '' },
     };
 
-    const result = await handler(event as Partial<APIGatewayProxyEvent>);
+    const result = await handler(event);
 
     expect(result.statusCode).toBe(400);
     expect(result.body).toBe('Missing required query parameter: name');
@@ -62,7 +61,7 @@ describe('importProductsFile handler', () => {
       queryStringParameters: { name: 'test.csv' },
     };
 
-    const result = await handler(event as Partial<APIGatewayProxyEvent>);
+    const result = await handler(event);
 
     expect(result.statusCode).toBe(500);
     expect(result.body).toBe('Internal server error');
@@ -75,7 +74,7 @@ describe('importProductsFile handler', () => {
 
     mockGetSignedUrl.mockRejectedValue(new Error('Test error'));
 
-    const result = await handler(event as Partial<APIGatewayProxyEvent>);
+    const result = await handler(event);
 
     expect(result.statusCode).toBe(500);
     expect(result.body).toBe('Internal server error');

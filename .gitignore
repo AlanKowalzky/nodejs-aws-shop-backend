@@ -1,7 +1,7 @@
 .env/
 node_modules
 **/node_modules/
-
+.claude/
 dist/
 .env
 **/task3/doc/
@@ -14,7 +14,6 @@ cdk.out/
 
 !task4nosql.md
 !task4nosql.txt
-!doc/task4/*.md
 product_service/scripts/setup-db-manual-fake.ts
 !product_service/scripts/seed-dynamodb.ts
-doc/*
+doc/
